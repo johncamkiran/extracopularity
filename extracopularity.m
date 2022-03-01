@@ -24,6 +24,11 @@ function [E, k, S] = extracopularity(varargin)
 %   [X, Y, Z] = meshgrid(1:20); S = [X(:), Y(:), Z(:)]; % defines system
 %   E = extracopularity(S); % computes extracopularity coefficients
 %   scatter3(S(:,1),S(:,2),S(:,3),[],E{1},'filled'); colorbar; % plots
+%
+%   REFERENCES:
+%   [1] John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "A local
+%       orientational order parameter for systems of interacting
+%       particles", J. Chem. Phys. 156, 091101 (2022)
 
 %{
 Copyright (c) 2022 John CAMKIRAN
