@@ -901,17 +901,21 @@ else
     
 end
 
-% =========================================================================
+end
 
-% Fast function for getting number of unique elements in an array
-    function N = numelunique(X)
-        N = nnz(diff(sort(X)))+1;
-    end
+%==========================================================================
+function N = numelunique(X)
+% numelunique(X) returns the number of unique elements in X
 
-% Function for computing angle between the row vectors of A and B
-    function angles = computeAngle(A,B)
-        angles = acosd(sum(A.*B,2) ./ sqrt(sum(A.*A,2).*sum(B.*B,2)));
-    end
+N = nnz(diff(sort(X)))+1;
+
+end
+
+%==========================================================================
+function angles = computeAngle(A,B)
+% computeAngle returns the angles between the row vectors of A and B
+
+angles = acosd(sum(A.*B,2) ./ sqrt(sum(A.*A,2).*sum(B.*B,2)));
 
 end
 
