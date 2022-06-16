@@ -984,7 +984,6 @@ function A = del2adj(T)
 % Delaunay triangulation matrix T
 
 numParticles = max(T(:));
-numDimensions = size(T,2);
 
 % Initialize a sparse logical matrix
 A = logical(sparse([], [], [], numParticles, numParticles));
