@@ -989,10 +989,13 @@ numDimensions = size(T,2);
 % Initialize a sparse logical matrix
 A = logical(sparse([], [], [], numParticles, numParticles));
 
+% Define pairs
+pairs = [1 2; 1 3; 1 4; 2 3; 2 4; 3 4];
+
 % Populate the matrix
-for i = 1:numDimensions
-    x = mod(i-1, numDimensions)+1;
-    y = mod(i, numDimensions)+1;
+for i = 1:6
+    x = pairs(i,1);
+    y = pairs(i,2);
     A = A | sparse(T(:,x), T(:,y),1, numParticles, numParticles);
 end
 
