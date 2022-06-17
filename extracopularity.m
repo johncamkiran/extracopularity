@@ -182,7 +182,7 @@ for t = 1:numTimesteps
     E{t} = log2(numBondPair) - log2(numDiffAngs);
     
     % Account for the trivial case (i.e. E := 0 if k = 1)
-    E{t}(numBondPair == 0) = 0;
+    E{t}(numBondPair == 1) = 0;
     
     % Assign second output argument
     k{t} = numBonds;
