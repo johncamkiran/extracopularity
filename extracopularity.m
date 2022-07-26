@@ -407,6 +407,7 @@ nnDist = sum(bondLengths(1:k_eff))/k_eff;
 k_half_shell = sum(bondLengths<=TAU_PLUS_ONE_HALF*nnDist);
 
 % Compute angles
+pairs_org = pairs; % take copy of original for later use
 pairs(any(pairs > min(14,k_raw),2),:) = [];
 angles = abs(computeAngle( bonds(pairs(:,1),:) , bonds(pairs(:,2),:) ));
 % ^ abs needed to prevent complex angles here
@@ -771,7 +772,7 @@ bonds(isFar,:) = [];
 bondLengths(isFar,:) = [];
 k_double_shell = size(bonds,1);
 
-% Apply naive neighbor restriction (for all others)
+% Apply naive neighbor restriction (for other CEGs)
 isFar = bondLengths > TAU_PLUS_ONE_SINGLE*nnDist;
 bonds(isFar,:) = [];
 k_single_shell = size(bonds,1);
@@ -828,7 +829,7 @@ if minRmse < RMSE_CUT
         case {17,18,19} % TTP (tricapped trigonal prismatic)
             k = 9;
             m = 5;
-        case 20 % HXD (regular hexahedral)
+        case 20 % HDR (regular hexahedral)
             k = 8;
             m = 3;
         case {21,22} % SA (square antiprismatic)
@@ -862,16 +863,19 @@ if minRmse < RMSE_CUT
     
 else
     
-    % Apply bond angle count estimator if geometry unrecognized
-    if k_half_shell < 2 % trivial case
+    % Apply bond angle discretization if geometry unrecognized
+    if k_single_shell < 2 % trivial case
         k = 2;
         m = 1;
     else % ordinary case
-        a = 11.407186472007339;
-        b =  7.334483343628186;
-        gamma = 3.4;
-        k = min(12,k_half_shell);
-        m = b - a*exp(-k/gamma);
+        pairs_org(any(pairs_org > min(12,size(bonds,1)),2),:) = [];
+        angles = abs(computeAngle( bonds(pairs_org(:,1),:), ...
+            bonds(pairs_org(:,2),:) ));
+            EDGES = [0   27.3678   57.9675   68.1037   78.3974   85.8934   ...
+                92.6483  102.3839  114.7356  122.6322  130.3540  139.7218  ...
+                162.0000  180.0000];
+            m = numel(unique(discretize(angles,EDGES)));
+            k = k_single_shell;
     end
     
 end
