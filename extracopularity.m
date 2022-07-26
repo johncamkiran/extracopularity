@@ -181,9 +181,6 @@ for t = 1:numTimesteps
     % Assign first output argument
     E{t} = log2(numBondPair) - log2(numDiffAngs);
     
-    % Account for the trivial case (i.e. E := 0 if k = 1)
-    E{t}(numBondPair == 0) = 0;
-    
     % Assign second output argument
     k{t} = numBonds;
     
@@ -224,12 +221,12 @@ rowNames = {'ICO' 'CPA' 'FCC' 'BCC' 'HCP' 'BPP' 'HXD,SA' 'CPP' 'BSP' ...
     'BSA,SC' 'CSA,CSP,TTP' 'HBP' 'TET,(9,6)' 'BTP' 'CTP,PBP' 'SDS' 'TBP'...
     'OTHER' 'TRIVIAL'};
 
-% Set table column names
-colNames = {'E' 'Initial (%)' 'Average (%)' 'Final (%)'};
+% Set table variable names
+varNames = {'E' 'InitialFraction' 'AvgFraction' 'FinalFraction'};
 
 % Construct table
 tbl = table(E_ref,strucFrac{1},strucFrac{2},strucFrac{3}, ...
-    'RowNames',rowNames,'VariableNames',colNames);
+    'RowNames',rowNames,'VariableNames',varNames);
 
 % Store existing display format
 fmt = format;
@@ -399,7 +396,7 @@ isOutlier = bondLengths>(2*bondLengths(1));
 bonds(isOutlier,:) = [];
 bondLengths(isOutlier,:) = [];
 
-% Determine number of bonds
+% Determine raw number of bonds
 k_raw = size(bonds,1);
 
 % Determine nearest neighbor distance
@@ -408,6 +405,11 @@ nnDist = sum(bondLengths(1:k_eff))/k_eff;
 
 % Compute half-shell coordination number
 k_half_shell = sum(bondLengths<=TAU_PLUS_ONE_HALF*nnDist);
+
+% Compute angles
+pairs(any(pairs > min(14,k_raw),2),:) = [];
+angles = abs(computeAngle( bonds(pairs(:,1),:) , bonds(pairs(:,2),:) ));
+% ^ abs needed to prevent complex angles here
 
 % Check for trivial case
 if k_raw < 2
@@ -421,18 +423,13 @@ RMSE = zeros(1,33);
 
 % ================================== 14 ===================================
 
-% Copy and truncate pair matrix
-pairs14 = pairs;
-pairs14(any(pairs14 > min(14,k_raw),2),:) = [];
-angles = computeAngle( bonds(pairs14(:,1),:) , bonds(pairs14(:,2),:) );
-
 % BCC (body-centered cubic) [M]
 BCC = [54.7356; 70.5288; 90; 109.4712; 125.2644; 180];
-[MAT,idx] = min(abs(angles-BCC'),[],2);
+
+[MAT,idx] = computeMinAbsDiff(angles,BCC);
 
 if numelunique(idx) == numel(BCC) && k_half_shell <= 14
-    SQR = MAT.*MAT;
-    RMSE(1) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(1) = computeRMS(MAT);
     hasRightAngle = true;
 else
     RMSE(1) = inf;
@@ -441,18 +438,17 @@ end
 
 % ================================== 12 ===================================
 
-% Copy and truncate pair matrix
-pairs12 = pairs14;
-pairs12(any(pairs12 > min(12,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs12(:,1),:),bonds(pairs12(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(12,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % FCC (face-centered cubic) [M]
 FCC = [60; 90; 120; 180];
-[MAT,idx] = min(abs(angles-FCC'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,FCC);
 
 if numelunique(idx) == numel(FCC) && k_half_shell > 8 && k_half_shell <= 12
-    SQR = MAT.*MAT;
-    RMSE(2) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(2) = computeRMS(MAT);
 else
     RMSE(2) = inf;
 end
@@ -463,11 +459,10 @@ HCP{2} = [59.5133; 61.4601; 90; 107.6796; 120.4867; 145.6822; 180]; % 1.580
 HCP{3} = [60; 90; 111.187; 119.5322; 147.1774; 180]; % 1.686
 
 for ii = 1:numel(HCP)
-    [MAT,idx] = min(abs(angles-HCP{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,HCP{ii});
     
     if numelunique(idx) == numel(HCP{ii}) && k_half_shell <= 12
-        SQR = MAT.*MAT;
-        RMSE(3+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(3+ii-1) = computeRMS(MAT);
     else
         RMSE(3+ii-1) = inf;
     end
@@ -476,50 +471,47 @@ end
 % ICO (regular icosahedral) [M]
 ICO = [63.4349; 116.5651; 180];
 
-[MAT,idx] = min(abs(angles-ICO'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,ICO);
 
 if numelunique(idx) == numel(ICO) && k_half_shell <= 12
-    SQR = MAT.*MAT;
-    RMSE(6) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(6) = computeRMS(MAT);
 else
     RMSE(6) = inf;
 end
 
 % BPP (bicapped pentagonal prismatic) [M*]
 BPP = [60.4798; 91.0450; 110.9015; 120; 148.9550; 180];
-[MAT,idx] = min(abs(angles-BPP'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,BPP);
 
 if numelunique(idx) == numel(BPP) && k_half_shell <= 12
-    SQR = MAT.*MAT;
-    RMSE(7) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(7) = computeRMS(MAT);
 else
     RMSE(7) = inf;
 end
 
 % ================================== 11 ===================================
 
-% Copy and truncate pair matrix
-pairs11 = pairs12;
-pairs11(any(pairs11 > min(11,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs11(:,1),:),bonds(pairs11(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(11,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % CPP (capped pentagonal prismatic) [M*]
 CPP = [60.5997; 91.0450; 110.9015; 120; 148.9550];
-[MAT,idx] = min(abs(angles-CPP'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,CPP);
 
 if numelunique(idx) == numel(CPP) && k_half_shell <= 11
-    SQR = MAT.*MAT;
-    RMSE(8) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(8) = computeRMS(MAT);
 else
     RMSE(8) = inf;
 end
 
 % ================================== 10 ===================================
 
-% Copy and truncate pair matrix
-pairs10 = pairs11;
-pairs10(any(pairs10 > min(10,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs10(:,1),:),bonds(pairs10(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(10,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % BSA (bicapped square antiprismatic) [M, LT, LJ, KA]
 BSA{1}=[59.2640; 74.8585; 118.5280; 120.7360; 141.5925; 180];
@@ -528,11 +520,10 @@ BSA{3}=[60.0213; 73.6873; 75.5415; 120.0000; 141.2822; 179.9993];
 BSA{4}=[60.9462; 72.2714; 76.3590; 119.0538; 121.8924; 140.9123; 179.9917];
 
 for ii = 1:numel(BSA)
-    [MAT,idx] = min(abs(angles-BSA{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,BSA{ii});
     
     if numelunique(idx) == numel(BSA{ii}) && k_half_shell <= 10
-        SQR = MAT.*MAT;
-        RMSE(9+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(9+ii-1) = computeRMS(MAT);
         
     else
         RMSE(9+ii-1) = inf;
@@ -547,11 +538,10 @@ end
 
 % BSP (bicapped square prismatic) [M]
 BSP = [54.7356; 70.5288; 109.4712; 125.2644; 180];
-[MAT,idx] = min(abs(angles-BSP'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,BSP);
 
 if numelunique(idx) == numel(BSP) && ~hasRightAngle && k_half_shell <= 10
-    SQR = MAT.*MAT;
-    RMSE(13) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(13) = computeRMS(MAT);
     hasTheseFiveAngles = true;
 else
     RMSE(13) = inf;
@@ -560,10 +550,10 @@ end
 
 % =================================== 9 ===================================
 
-% Copy and truncate pair matrix
-pairs9 = pairs10;
-pairs9(any(pairs9 > min(9,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs9(:,1),:),bonds(pairs9(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(9,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % CSA (capped square antiprismatic) [M, LJ, KA*]
 CSA{1}=[59.2641; 74.8585; 118.5283; 120.7359; 141.5925];
@@ -571,13 +561,12 @@ CSA{2}=[61.6446; 73.9485; 76.9638; 115.3109; 122.6594; 141.2438];
 CSA{3}=[61.8542; 72.0865; 76.4563; 120; 123.7084; 140.8359];
 
 for ii = 1:numel(CSA)
-    [MAT,idx] = min(abs(angles-CSA{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,CSA{ii});
     
     if numelunique(idx) == numel(CSA{ii}) ...
             && ~hasStraightAngle  && k_half_shell <= 9
         
-        SQR = MAT.*MAT;
-        RMSE(14+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(14+ii-1) = computeRMS(MAT);
         
     else
         RMSE(14+ii-1) = inf;
@@ -596,11 +585,10 @@ TTP{2} = [68.8826; 77.2230; 87.7962; 120; 136.1017; 137.7634];
 TTP{3} = [70.4623; 96.8836; 120; 131.5582; 141.2572];
 
 for ii = 1:numel(TTP)
-    [MAT,idx] = min(abs(angles-TTP{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,TTP{ii});
     
     if numelunique(idx) == numel(TTP{ii}) && k_half_shell <= 9
-        SQR = MAT.*MAT;
-        RMSE(17+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(17+ii-1) = computeRMS(MAT);
     else
         RMSE(17+ii-1) = inf;
     end
@@ -608,20 +596,19 @@ end
 
 % =================================== 8 ===================================
 
-% Copy and truncate pair matrix
-pairs8 = pairs9;
-pairs8(any(pairs8 > min(8,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs8(:,1),:),bonds(pairs8(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(8,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % HXD (regular hexahedral) [M]
 HXD = [70.5288; 109.4712; 180];
-[MAT,idx] = min(abs(angles-HXD'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,HXD);
 
 if numelunique(idx) == numel(HXD) ...
         && ~hasRightAngle && ~hasTheseFiveAngles && k_half_shell <= 8
     
-    SQR = MAT.*MAT;
-    RMSE(20) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(20) = computeRMS(MAT);
     
 else
     RMSE(20) = inf;
@@ -632,13 +619,12 @@ SA{1} = [74.8585; 118.5280; 141.5925];
 SA{2} = [73.4274; 75.6923; 120.3805; 141.2138];
 
 for ii = 1:numel(SA)
-    [MAT,idx] = min(abs(angles-SA{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,SA{ii});
     
     if numelunique(idx) == numel(SA{ii}) ...
             && ~has60DegAngle && ~hasStraightAngle && k_half_shell <= 8
         
-        SQR = MAT.*MAT;
-        RMSE(21+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(21+ii-1) = computeRMS(MAT);
         
     else
         RMSE(21+ii-1) = inf;
@@ -650,13 +636,12 @@ BTP{1} = [67.7923; 81.7868; 120; 135.5847; 139.1066];
 BTP{2} =[69.1846; 79.8549; 82.5099; 85.5736; 122.4174; 130.3709; 138.9367];
 
 for ii = 1:numel(BTP)
-    [MAT,idx] = min(abs(angles-BTP{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,BTP{ii});
     
     if numelunique(idx) == numel(BTP{ii}) ...
             && ~has60DegAngle && k_half_shell <= 8
         
-        SQR = MAT.*MAT;
-        RMSE(23+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(23+ii-1) = computeRMS(MAT);
         
     else
         RMSE(23+ii-1) = inf;
@@ -666,12 +651,10 @@ end
 
 % HBP (hexagonal bipyramidal) [M]
 HBP = [60; 90; 120; 180];
-
-[MAT,idx] = min(abs(angles-HBP'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,HBP);
 
 if numelunique(idx)==numel(HBP) && k_half_shell <= 8
-    SQR = MAT.*MAT;
-    RMSE(25) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(25) = computeRMS(MAT);
 else
     RMSE(25) = inf;
 end
@@ -682,12 +665,10 @@ SDS{2} = [56.9514; 63.9619; 80.3951; 87.3046; 91.7857; 118.8147; ...
     121.9861; 132.4627; 160.4156; 172.9793];
 
 for ii = 1:numel(SDS)
-    [MAT,idx] = min(abs(angles-SDS{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,SDS{ii});
     
     if numelunique(idx)==numel(SDS{ii}) && k_half_shell <= 8
-        
-        SQR = MAT.*MAT;
-        RMSE(26+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(26+ii-1) = computeRMS(MAT);
         
     else
         RMSE(26+ii-1) = inf;
@@ -697,19 +678,18 @@ end
 
 % =================================== 7 ===================================
 
-% Copy and truncate pair matrix
-pairs7 = pairs8;
-pairs7(any(pairs7 > min(7,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs7(:,1),:),bonds(pairs7(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(7,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % PBP (pentagonal bipyramidal) [M]
 PBP = [72; 90; 144; 180];
 
-[MAT,idx] = min(abs(angles-PBP'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,PBP);
 
 if numelunique(idx) == numel(PBP) && k_half_shell <= 7
-    SQR = MAT.*MAT;
-    RMSE(28) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(28) = computeRMS(MAT);
 else
     RMSE(28) = inf;
 end
@@ -720,11 +700,10 @@ CTP{2}=[73.3975; 77.0703; 78.9191; 83.7121; 86.9184; 129.7326; 141.4649;...
     146.7951];
 
 for ii = 1:numel(CTP)
-    [MAT,idx] = min(abs(angles-CTP{ii}'),[],2);
+    [MAT,idx] = computeMinAbsDiff(angles,CTP{ii});
     
     if numelunique(idx) == numel(CTP{ii}) && k_half_shell <= 7
-        SQR = MAT.*MAT;
-        RMSE(29+ii-1) = sqrt(sum(SQR)/numel(SQR));
+        RMSE(29+ii-1) = computeRMS(MAT);
     else
         RMSE(29+ii-1) = inf;
     end
@@ -733,55 +712,52 @@ end
 
 % =================================== 6 ===================================
 
-% Copy and truncate pair matrix
-pairs6 = pairs7;
-pairs6(any(pairs6 > min(6,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs6(:,1),:),bonds(pairs6(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(6,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % SC (regular octahedral / simple cubic) [M]
 SC = [90; 180];
 
-[MAT,idx] = min(abs(angles-SC'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,SC);
 
 if numelunique(idx) == numel(SC) && k_half_shell <= 6
-    SQR = MAT.*MAT;
-    RMSE(31) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(31) = computeRMS(MAT);
 else
     RMSE(31) = inf;
 end
 
 % =================================== 5 ===================================
 
-% Copy and truncate pair matrix
-pairs5 = pairs6;
-pairs5(any(pairs5 > min(5,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs5(:,1),:),bonds(pairs5(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(5,k_raw),2);
+pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % TBP (trigonal bipyramidal) [M]
 TBP = [90; 120; 180];
-[MAT,idx] = min(abs(angles-TBP'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,TBP);
 
 if numelunique(idx) == numel(TBP) && k_half_shell <= 5
-    SQR = MAT.*MAT;
-    RMSE(32) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(32) = computeRMS(MAT);
 else
     RMSE(32) = inf;
 end
 
 % =================================== 4 ===================================
 
-% Copy and truncate pair matrix
-pairs4 = pairs5;
-pairs4(any(pairs4 > min(4,k_raw),2),:) = [];
-angles = computeAngle(bonds(pairs4(:,1),:),bonds(pairs4(:,2),:) );
+% Shed unneeded rows from angles and pairs
+rowsToShed = any(pairs > min(4,k_raw),2);
+%pairs(rowsToShed,:) = [];
+angles(rowsToShed,:) = [];
 
 % TET (tetrahedral) [M]
 TET = 109.4712;
-[MAT,idx] = min(abs(angles-TET'),[],2);
+[MAT,idx] = computeMinAbsDiff(angles,TET);
 
 if numelunique(idx) == numel(TET) && k_half_shell <= 4
-    SQR = MAT.*MAT;
-    RMSE(33) = sqrt(sum(SQR)/numel(SQR));
+    RMSE(33) = computeRMS(MAT);
 else
     RMSE(33) = inf;
 end
@@ -816,7 +792,6 @@ RMSE = CORR_FACT.*RMSE;
 
 % Assign outputs (coordination number and angle count)
 if minRmse < RMSE_CUT
-    
     % Assign directly for commonly encountered geometries
     switch minIdx
         case 1 % BCC (body-centered cubic)
@@ -901,17 +876,38 @@ else
     
 end
 
-% =========================================================================
+end
 
-% Fast function for getting number of unique elements in an array
-    function N = numelunique(X)
-        N = nnz(diff(sort(X)))+1;
-    end
+%==========================================================================
+function [minAbsDiffs,idx] = computeMinAbsDiff(A,B)
+% computeMinAbsDiff(A,B) returns the minimum absolute difference of A and B
 
-% Function for computing angle between the row vectors of A and B
-    function angles = computeAngle(A,B)
-        angles = acosd(sum(A.*B,2) ./ sqrt(sum(A.*A,2).*sum(B.*B,2)));
-    end
+[minAbsDiffs,idx] = min(abs(A-B'),[],2);
+
+end
+
+%==========================================================================
+function rms = computeRMS(X)
+% computeRMS(X) returns the elementwise root mean square of X
+
+X2 = X.*X;
+rms = sqrt(sum(X2)/numel(X2));
+
+end
+
+%==========================================================================
+function N = numelunique(X)
+% numelunique(X) returns the number of unique elements in X
+
+N = nnz(diff(sort(X)))+1;
+
+end
+
+%==========================================================================
+function angles = computeAngle(A,B)
+% computeAngle returns the angles between the row vectors of A and B
+
+angles = acosd(sum(A.*B,2) ./ sqrt(sum(A.*A,2).*sum(B.*B,2)));
 
 end
 
@@ -984,15 +980,17 @@ function A = del2adj(T)
 % Delaunay triangulation matrix T
 
 numParticles = max(T(:));
-numDimensions = size(T,2);
 
 % Initialize a sparse logical matrix
 A = logical(sparse([], [], [], numParticles, numParticles));
 
+% Define pairs
+pairs = [1 2; 1 3; 1 4; 2 3; 2 4; 3 4];
+
 % Populate the matrix
-for i = 1:numDimensions
-    x = mod(i-1, numDimensions)+1;
-    y = mod(i, numDimensions)+1;
+for i = 1:6
+    x = pairs(i,1);
+    y = pairs(i,2);
     A = A | sparse(T(:,x), T(:,y),1, numParticles, numParticles);
 end
 
@@ -1035,4 +1033,3 @@ majorityVote = 0.5*numSamplings;
 A = A > majorityVote;
 
 end
-
