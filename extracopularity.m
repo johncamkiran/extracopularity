@@ -224,12 +224,12 @@ rowNames = {'ICO' 'CPA' 'FCC' 'BCC' 'HCP' 'BPP' 'HXD,SA' 'CPP' 'BSP' ...
     'BSA,SC' 'CSA,CSP,TTP' 'HBP' 'TET,(9,6)' 'BTP' 'CTP,PBP' 'SDS' 'TBP'...
     'OTHER' 'TRIVIAL'};
 
-% Set table column names
-colNames = {'E' 'Initial (%)' 'Average (%)' 'Final (%)'};
+% Set table variable names
+varNames = {'E' 'InitialFraction' 'AvgFraction' 'FinalFraction'};
 
 % Construct table
 tbl = table(E_ref,strucFrac{1},strucFrac{2},strucFrac{3}, ...
-    'RowNames',rowNames,'VariableNames',colNames);
+    'RowNames',rowNames,'VariableNames',varNames);
 
 % Store existing display format
 fmt = format;
@@ -1041,4 +1041,3 @@ majorityVote = 0.5*numSamplings;
 A = A > majorityVote;
 
 end
-
