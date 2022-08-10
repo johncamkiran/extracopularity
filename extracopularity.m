@@ -181,7 +181,7 @@ for t = 1:numTimesteps
     % Calculate the number of bond pairs for each neighborhood
     numBondPair = (numBonds.^2-numBonds)/2;
     
-    % Bound numDiffAng from above by numBondPair (just in case)
+    % Limit numDiffAng by numBondPair (just in case)
     numDiffAngs = min(numDiffAngs,numBondPair);
     
     % Assign first output argument
