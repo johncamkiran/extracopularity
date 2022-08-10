@@ -102,6 +102,7 @@ switch inputType
         
         % Return control if coefficients are found
         if ~isempty(E{1})
+            k = [];
             return
         end
         
