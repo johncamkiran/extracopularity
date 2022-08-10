@@ -398,7 +398,8 @@ bondLengths = sqrt(sum(bonds.*bonds,2));
 bonds = bonds(idx,:);
 
 % Remove outliers
-isOutlier = bondLengths>(2*bondLengths(1));
+lengthScale = min(pdist(bonds));
+isOutlier = bondLengths>(2*lengthScale);
 bonds(isOutlier,:) = [];
 bondLengths(isOutlier,:) = [];
 
