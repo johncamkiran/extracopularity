@@ -26,9 +26,14 @@ function [E, k, S] = extracopularity(varargin)
 %   scatter3(S(:,1),S(:,2),S(:,3),[],E{1},'filled'); colorbar; % plots
 %
 %   REFERENCES:
+%
 %   [1] John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "A local
 %       orientational order parameter for systems of interacting
 %       particles", J. Chem. Phys. 156, 091101 (2022)
+%
+%   [2] John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "On the top-
+%       ology of the space of coordination geometries", arXiv:2207.12171 
+%       [math-ph] (2022)
 
 %{
 Copyright (c) 2022 John CAMKIRAN
