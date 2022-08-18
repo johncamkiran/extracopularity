@@ -1,12 +1,16 @@
 <img width="1080" alt="extracopularity-banner" src="https://user-images.githubusercontent.com/41493682/181186896-0c333843-a5bd-49c6-a6ff-51bd26bcb9ca.png">
 
-# Extracopularity in 3D particle packings
+# Extracopularity in particle packings
 
-Code for computing *extracopularity coefficients* in three-dimensional particle packings.
-
-The current version performs "bond angle discretization" as per [2] if a "commonly encountered geometry" cannot be found as per [1]. A version that adheres strictly to [1] is preserved in the legacy branch.
+Code for computing extracopularity coefficients in three-dimensional particle packings. 
 
 For documentation, see the header comment of the file extracopularity.m
+
+## Versions
+
+The latest version performs "bond angle discretization" as per [2] if a "commonly encountered geometry" cannot be found as per [1]. A version that adheres strictly to [1] is preserved in the legacy branch. 
+
+A C++ implementation is currently under development.
 
 ## Citation
 
