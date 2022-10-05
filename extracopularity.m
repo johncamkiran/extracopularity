@@ -1,27 +1,39 @@
-function [E, k, S] = extracopularity(varargin)
+function [E, k, m, I, S] = extracopularity(varargin) %#ok<FNDEF>
 %EXTRACOPULARITY Extracopularity coefficients for a 3D particle packing.
 %
-%   extracopularity(filename) returns extracopularity coefficients for the
-%   particles described by a LAMMPS dump file with unscaled atomic coord-
-%   inates. A copy of this file with a column for extracopularity coeff-
-%   icients labelled "c_extra" is created at the path of the original.
+%   extracopularity(filename) returns a cell array of extracopularity 
+%   coefficients for a LAMMPS dump file that uses unscaled atomic coordin-
+%   ates. A copy of this file with the prefix "extra." featuring a column
+%   for extracopularity coefficients titled "c_extra" is created at the
+%   path of the original.
 %
-%   extracopularity(S) returns extracopularity coefficients for the part-
-%   icles described by an N x 3 coordinate matrix (a matrix whose N rows 
-%   are coordinate vectors relative to some ordered basis).
+%   extracopularity(S) returns a cell array of extracopularity coefficients
+%   for an N x 3 coordinate matrix S, where S{t}(n,:) is the row vector
+%   giving the xyz coordinates of particle number n at timestep t.
+%   
+%   E = extracopularity(...) returns a cell array E for extracopularity co-
+%   efficients, where E{t}(n) is the coefficient of particle number n at 
+%   timestep t.
 %
-%   E = extracopularity(...) returns a cell array of extracopularity coeff-
-%   icients. If the input argument is a LAMMPS dump file with multiple
-%   timesteps, the nth cell corresponds to the nth timestep.
-%
-%   [E, k] = extracopularity(...) returns cell arrays for extracopularity
-%   coefficients and coordination numbers.
-%
-%   [E, k, S] = extracopularity(...) returns cell arrays for extracopul-
-%   arity coefficients, coordination numbers, and coordinate matrices.
+%   [E, k] = extracopularity(...) also returns a cell array k for coordin-
+%   ation number, where k{t}(n) is the coordination number of particle num-
+%   ber n at timestep t.
+%   
+%   [E, k, m] = extracopularity(...) also returns a cell array m of bond 
+%   angle count vectors, where m{t}(n) is the bond angle count of particle 
+%   number n at timestep t.
+%   
+%   [E, k, m, I] = extracopularity(...) also returns a cell array I for 
+%   particle type, where I{t}(n) indicates the type of particle number n 
+%   (identical for every timestep t).
+%   
+%   [E, k, m, I, S] = extracopularity(...) also returns a cell array S for 
+%   coordinate matrices, where S{t}(n,:) is the row vector giving the xyz 
+%   coordinates of particle number n at timestep t.
 %
 %   EXAMPLE:
-%   [X, Y, Z] = meshgrid(1:20); S = [X(:), Y(:), Z(:)]; % defines system
+%
+%   [X, Y, Z] = meshgrid(1:20); S = [X(:), Y(:), Z(:)]; % defines a lattice
 %   E = extracopularity(S); % computes extracopularity coefficients
 %   scatter3(S(:,1),S(:,2),S(:,3),[],E{1},'filled'); colorbar; % plots
 %
@@ -65,7 +77,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 %}
 
-% ============================= PARSE INPUTS ==============================
+%****************************** PARSE INPUTS ******************************
 
 % Print empty line
 disp(' ');
@@ -98,11 +110,12 @@ switch inputType
         
         % Read data and search for extracopularity coefficients
         filename = char(varargin{1});
-        [S,dumpHeaders,dumpTables,~,E] = readLammpsDump(filename);
+        [S,dumpHeaders,dumpTables,~,E,I] = readLammpsDump(filename);
         
         % Return control if coefficients are found
         if ~isempty(E{1})
             k = [];
+            m = [];
             return
         end
         
@@ -133,7 +146,7 @@ if min(svd(S{1})) < eps
     error('System must have 3 linearly independent dimensions.');
 end
 
-% ============================ COMPUTE OUTPUTS ============================
+%**************************** COMPUTE OUTPUTS *****************************
 
 % Set number of perturbation samplings
 NUM_SAMPLES = 8;
@@ -192,6 +205,7 @@ for t = 1:numTimesteps
     
     % Assign second output argument
     k{t} = numBonds;
+    m{t} = numDiffAngs;
     
 end
 
@@ -205,7 +219,7 @@ if exist('dumpTables','var')
     writeLammpsDump(dumpTables,dumpHeaders,E,filename)
 end
 
-% =========================== TABULATE RESULTS ============================
+%*************************** TABULATE RESULTS *****************************
 
 % Calculate E for commonly encountered geometries
 k_ref = [12 11 12 14 12 12  8 11 10 10  9  8  4  8  7  8  5 NaN  2];
@@ -254,7 +268,7 @@ clear fmt
 end
 
 %==========================================================================
-function [S,dumpHeaders,dumpTables,timeIdx,E] = readLammpsDump(filename)
+function [S,dumpHeaders,dumpTables,timeIdx,E,I] = readLammpsDump(filename)
 
 % Read LAMMPS dump file
 inputDumpId = fopen(filename,'r' );
@@ -279,6 +293,7 @@ dumpHeaders = cell(1,numTimeSteps);
 dumpTables  = cell(1,numTimeSteps);
 S           = cell(1,numTimeSteps);
 E           = cell(1,numTimeSteps);
+I           = cell(1,numTimeSteps);
 
 for t = 1:numTimeSteps % cannot be parfor
     
@@ -305,7 +320,7 @@ for t = 1:numTimeSteps % cannot be parfor
     coordinateColumns = strcmp('x',columnNames) ...
         | strcmp('y',columnNames) ...
         | strcmp('z',columnNames);
- 
+    
     % Read unscaled coordinates into variable S if found
     if sum(coordinateColumns)==3
         S{t} = table2array(dumpTables{t}(:,coordinateColumns));
@@ -323,9 +338,17 @@ for t = 1:numTimeSteps % cannot be parfor
         E{t} = [];
     end
     
-    % Delete temporary file
-    delete tmp.dump.txt
-    
+    % Search for particle type column
+    typeColumn = strcmp('type',columnNames);
+    if any(typeColumn)
+        I{t} = table2array(dumpTables{t}(:,typeColumn));
+    else
+        warning('Particle types could not be found.');
+    end
+
+% Delete temporary file
+delete tmp.dump.txt
+
 end
 
 % Display progress message
@@ -433,7 +456,7 @@ end
 % Initialize RMSE vector
 RMSE = zeros(1,33);
 
-% ================================== 14 ===================================
+%********************************** 14 ************************************
 
 % BCC (body-centered cubic) [M]
 BCC = [54.7356; 70.5288; 90; 109.4712; 125.2644; 180];
@@ -448,7 +471,7 @@ else
     hasRightAngle = false;
 end
 
-% ================================== 12 ===================================
+%********************************** 12 ************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(12,k_raw),2);
@@ -501,7 +524,7 @@ else
     RMSE(7) = inf;
 end
 
-% ================================== 11 ===================================
+%********************************** 11 ************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(11,k_raw),2);
@@ -518,7 +541,7 @@ else
     RMSE(8) = inf;
 end
 
-% ================================== 10 ===================================
+%********************************** 10 ************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(10,k_raw),2);
@@ -560,7 +583,7 @@ else
     hasTheseFiveAngles = false;
 end
 
-% =================================== 9 ===================================
+%********************************** 9 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(9,k_raw),2);
@@ -606,7 +629,7 @@ for ii = 1:numel(TTP)
     end
 end
 
-% =================================== 8 ===================================
+%********************************** 8 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(8,k_raw),2);
@@ -688,7 +711,7 @@ for ii = 1:numel(SDS)
     
 end
 
-% =================================== 7 ===================================
+%********************************** 7 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(7,k_raw),2);
@@ -722,7 +745,7 @@ for ii = 1:numel(CTP)
     
 end
 
-% =================================== 6 ===================================
+%********************************** 6 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(6,k_raw),2);
@@ -740,7 +763,7 @@ else
     RMSE(31) = inf;
 end
 
-% =================================== 5 ===================================
+%********************************** 5 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(5,k_raw),2);
@@ -757,7 +780,7 @@ else
     RMSE(32) = inf;
 end
 
-% =================================== 4 ===================================
+%********************************** 4 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(4,k_raw),2);
@@ -774,8 +797,7 @@ else
     RMSE(33) = inf;
 end
 
-
-% =========================================================================
+%--------------------------------------------------------------------------
 
 % Apply naive neighbor restriction (for BCC)
 isFar = bondLengths > TAU_PLUS_ONE_DOUBLE*nnDist;
