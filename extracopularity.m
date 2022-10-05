@@ -139,6 +139,9 @@ switch inputType
             error('Numeric arguments must have more than 3 rows.');
         end
         
+        % Assign null output I
+        I = [];
+        
 end
 
 % Throw error if system is degenerate to within machine precision
