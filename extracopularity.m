@@ -1,7 +1,7 @@
 function [E, k, m, I, S] = extracopularity(varargin) %#ok<FNDEF>
 %EXTRACOPULARITY Extracopularity coefficients for a 3D particle packing.
 %
-%   extracopularity(filename) returns a cell array of extracopularity 
+%   extracopularity(filename) returns a cell array of extracopularity
 %   coefficients for a LAMMPS dump file that uses unscaled atomic coordin-
 %   ates. A copy of this file with the prefix "extra." featuring a column
 %   for extracopularity coefficients titled "c_extra" is created at the
@@ -10,25 +10,25 @@ function [E, k, m, I, S] = extracopularity(varargin) %#ok<FNDEF>
 %   extracopularity(S) returns a cell array of extracopularity coefficients
 %   for an N x 3 coordinate matrix S, where S{t}(n,:) is the row vector
 %   giving the xyz coordinates of particle number n at timestep t.
-%   
+%
 %   E = extracopularity(...) returns a cell array E for extracopularity co-
-%   efficients, where E{t}(n) is the coefficient of particle number n at 
+%   efficients, where E{t}(n) is the coefficient of particle number n at
 %   timestep t.
 %
 %   [E, k] = extracopularity(...) also returns a cell array k for coordin-
 %   ation number, where k{t}(n) is the coordination number of particle num-
 %   ber n at timestep t.
-%   
-%   [E, k, m] = extracopularity(...) also returns a cell array m of bond 
-%   angle count vectors, where m{t}(n) is the bond angle count of particle 
+%
+%   [E, k, m] = extracopularity(...) also returns a cell array m of bond
+%   angle count vectors, where m{t}(n) is the bond angle count of particle
 %   number n at timestep t.
-%   
-%   [E, k, m, I] = extracopularity(...) also returns a cell array I for 
-%   particle type, where I{t}(n) indicates the type of particle number n 
+%
+%   [E, k, m, I] = extracopularity(...) also returns a cell array I for
+%   particle type, where I{t}(n) indicates the type of particle number n
 %   (identical for every timestep t).
-%   
-%   [E, k, m, I, S] = extracopularity(...) also returns a cell array S for 
-%   coordinate matrices, where S{t}(n,:) is the row vector giving the xyz 
+%
+%   [E, k, m, I, S] = extracopularity(...) also returns a cell array S for
+%   coordinate matrices, where S{t}(n,:) is the row vector giving the xyz
 %   coordinates of particle number n at timestep t.
 %
 %   EXAMPLE:
@@ -44,7 +44,7 @@ function [E, k, m, I, S] = extracopularity(varargin) %#ok<FNDEF>
 %       particles", J. Chem. Phys. 156, 091101 (2022)
 %
 %   [2] John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "On the top-
-%       ology of the space of coordination geometries", arXiv:2207.12171 
+%       ology of the space of coordination geometries", arXiv:2207.12171
 %       [math-ph] (2022)
 
 %{
@@ -243,8 +243,8 @@ strucFrac{2}(end-1,:)=100*mean(sum(abs(vertcat(E{:})-E_ref')<=prc,2)==0);
 strucFrac{3}(end-1,:)=100*mean(sum(abs(vertcat(E{end})-E_ref')<=prc,2)==0);
 
 % Set table row names
-rowNames = {'ICO' 'CPA' 'FCC' 'BCC' 'HCP' 'BPP' 'HXD,SA' 'CPP' 'BSP' ...
-    'BSA,SC' 'CSA,CSP,TTP' 'HBP' 'TET,(9,6)' 'BTP' 'CTP,PBP' 'SDS' 'TBP'...
+rowNames = {'ICO' 'CPA' 'FCC' 'BCC' 'HCP' 'BPP' 'HDR/SA' 'CPP' 'BSP' ...
+    'BSA/SC' 'CSA/CSP/TTP' 'HBP' 'TET' 'BTP' 'CTP/PBP' 'SDS' 'TBP' ...
     'OTHER' 'TRIVIAL'};
 
 % Set table variable names
@@ -348,10 +348,10 @@ for t = 1:numTimeSteps % cannot be parfor
     else
         warning('Particle types could not be found.');
     end
-
-% Delete temporary file
-delete tmp.dump.txt
-
+    
+    % Delete temporary file
+    delete tmp.dump.txt
+    
 end
 
 % Display progress message
@@ -639,11 +639,11 @@ rowsToShed = any(pairs > min(8,k_raw),2);
 pairs(rowsToShed,:) = [];
 angles(rowsToShed,:) = [];
 
-% HXD (regular hexahedral) [M]
-HXD = [70.5288; 109.4712; 180];
-[MAT,idx] = computeMinAbsDiff(angles,HXD);
+% HDR (regular hexahedral) [M]
+HDR = [70.5288; 109.4712; 180];
+[MAT,idx] = computeMinAbsDiff(angles,HDR);
 
-if numelunique(idx) == numel(HXD) ...
+if numelunique(idx) == numel(HDR) ...
         && ~hasRightAngle && ~hasTheseFiveAngles && k_half_shell <= 8
     
     RMSE(20) = computeRMS(MAT);
@@ -907,11 +907,11 @@ else
         pairs_org(any(pairs_org > min(12,size(bonds,1)),2),:) = [];
         angles = abs(computeAngle( bonds(pairs_org(:,1),:), ...
             bonds(pairs_org(:,2),:) ));
-            EDGES = [0   27.3678   57.9675   68.1037   78.3974   85.8934   ...
-                92.6483  102.3839  114.7356  122.6322  130.3540  139.7218  ...
-                162.0000  180.0000];
-            m = numel(unique(discretize(angles,EDGES)));
-            k = k_single_shell;
+        EDGES = [0   27.3678   57.9675   68.1037   78.3974   85.8934   ...
+            92.6483  102.3839  114.7356  122.6322  130.3540  139.7218  ...
+            162.0000  180.0000];
+        m = numel(unique(discretize(angles,EDGES)));
+        k = k_single_shell;
     end
     
 end
