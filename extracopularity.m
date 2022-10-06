@@ -1,4 +1,4 @@
-function [E, k, m, I, S] = extracopularity(varargin) %#ok<FNDEF>
+function [E, k, m, I, S] = extracopularity(varargin)
 %EXTRACOPULARITY Extracopularity coefficients for a 3D particle packing.
 %
 %   extracopularity(filename) returns a cell array of extracopularity
@@ -11,23 +11,23 @@ function [E, k, m, I, S] = extracopularity(varargin) %#ok<FNDEF>
 %   for an N x 3 coordinate matrix S, where S{t}(n,:) is the row vector
 %   giving the xyz coordinates of particle number n at timestep t.
 %
-%   E = extracopularity(...) returns a cell array E for extracopularity co-
-%   efficients, where E{t}(n) is the coefficient of particle number n at
+%   E = extracopularity(...) returns a cell array E of extracopularity
+%   coefficients, where E{t}(n) is the coefficient of particle number n at
 %   timestep t.
 %
 %   [E, k] = extracopularity(...) also returns a cell array k for coordin-
 %   ation number, where k{t}(n) is the coordination number of particle num-
 %   ber n at timestep t.
 %
-%   [E, k, m] = extracopularity(...) also returns a cell array m of bond
-%   angle count vectors, where m{t}(n) is the bond angle count of particle
-%   number n at timestep t.
+%   [E, k, m] = extracopularity(...) also returns a cell array m for bond
+%   angle count, where m{t}(n) is the bond angle count of particle number
+%   n at timestep t.
 %
 %   [E, k, m, I] = extracopularity(...) also returns a cell array I for
 %   particle type, where I{t}(n) indicates the type of particle number n
 %   (identical for every timestep t).
 %
-%   [E, k, m, I, S] = extracopularity(...) also returns a cell array S for
+%   [E, k, m, I, S] = extracopularity(...) also returns a cell array S of
 %   coordinate matrices, where S{t}(n,:) is the row vector giving the xyz
 %   coordinates of particle number n at timestep t.
 %
