@@ -12,6 +12,11 @@ function [E, k, m, I, S] = extracopularity(varargin)
 %   for an N x 3 coordinate matrix S, where S{t}(n,:) is the row vector
 %   giving the xyz coordinates of particle number n at timestep t.
 %
+%   extracopularity(___,numSamples) computes coefficients from a specified
+%   number of robustified Voronoi neighborhood samples. Larger values pro-
+%   duce more accurate results at the expense of performance. The default
+%   number of samples is 8.
+%
 %   E = extracopularity(...) returns a cell array E of extracopularity
 %   coefficients, where E{t}(n) is the coefficient of particle number n at
 %   timestep t.
@@ -89,22 +94,34 @@ if nargin < 1
 end
 
 % Throw error if too many input arguments
-if nargin > 1
+if nargin > 2
     error('Too many input arguments.');
 end
 
-% Determine input type and throw error if invalid
+% Assign numSamples to user defined or default value
+if nargin == 2
+    if isnumeric(varargin{2}) && numel(varargin{2})==1 && ...
+        varargin{2} > 0 && rem(varargin{2},1) == 0
+        numSamples = varargin{2}; % user defined value
+    else
+        error('Second argument must be a positive integer.');
+    end
+else
+    numSamples = 8; % default value
+end
+
+% Determine first input type and throw error if invalid
 if isnumeric(varargin{1})
     inputType = 'numeric';
 else
     try char(varargin{1});
         inputType = 'string';
     catch
-        error('Invalid data type. Argument must be a string or numeric.');
+        error('First argument must be a string or numeric.');
     end
 end
 
-% Proceed based on input type
+% Proceed based on first input type
 switch inputType
     
     case 'string'
@@ -122,22 +139,22 @@ switch inputType
         
     case 'numeric'
         
-        % Assign input to S
-        S = varargin;
+        % Assign first input to S
+        S = varargin(1);
         
         % Throw error if input argument is complex
         if ~isequal(S{1},real(S{1}))
-            error('Numeric argumnts must be real.');
+            error('A numeric first argument must be real.');
         end
         
         % Throw error if input argument does not have 3 columns
         if size(S{1},2) ~= 3
-            error('Numeric arguments must have 3 columns.');
+            error('A numeric first argument must have 3 columns.');
         end
         
         % Throw error if input argument does not have more than 3 columns
         if size(S{1},1) <= size(S{1},2)
-            error('Numeric arguments must have more than 3 rows.');
+            error('A numeric first argument must have more than 3 rows.');
         end
         
         % Assign null output I
@@ -151,9 +168,6 @@ if min(svd(S{1})) < eps
 end
 
 %**************************** COMPUTE OUTPUTS *****************************
-
-% Set number of perturbation samplings
-NUM_SAMPLES = 8;
 
 % Determine number of timesteps in input data
 numTimesteps = numel(S);
@@ -176,7 +190,7 @@ for t = 1:numTimesteps
     
     % Compute the partially robustified Voronoi adjacency matrix
     % (robustification is implicitly completed by computeHoodParms)
-    A = computePartRobustVoronoi(S{t}, NUM_SAMPLES);
+    A = computePartRobustVoronoi(S{t}, numSamples);
     
     % Determine the number of particles
     numParticles = size(S{t},1);
@@ -207,7 +221,7 @@ for t = 1:numTimesteps
     % Account for the case of a single bond
     E{t}(numBondPair == 0) = 0;
     
-    % Assign second output argument
+    % Assign second and third output arguments
     k{t} = numBonds;
     m{t} = numDiffAngs;
     
@@ -218,7 +232,7 @@ elapsedTime = toc; % measures elapsed time
 % Display progress message
 disp(strcat("Analysis completed in ",string(elapsedTime)," seconds."));
 
-% Write to file (if particle position data was taken from a file)
+% Write to file (if particle position data was read from a file)
 if exist('dumpTables','var')
     writeLammpsDump(dumpTables,dumpHeaders,E,filename)
 end
@@ -815,12 +829,12 @@ bonds(isFar,:) = [];
 k_single_shell = size(bonds,1);
 
 % Set correction factors
-CORR_FACT = [ 1.3155    1.0000    1.3830    1.4386    1.3729    0.7769 ...
-    1.3804    1.3333    1.1576    1.1618    1.1256    1.1476 ...
-    1.1346    1.0937    1.1362    1.0642    0.9654    0.9727 ...
-    0.9791    0.7218    0.7837    0.8054    0.9655    0.9561 ...
-    1.0032    1.0677    1.6948    0.7964    0.8164    0.8528 ...
-    0.4405    0.5423    0.3337];
+CORR_FACT = [1.3155    1.0000    1.3830    1.4386    1.3729    0.7769 ...
+             1.3804    1.3333    1.1576    1.1618    1.1256    1.1476 ...
+             1.1346    1.0937    1.1362    1.0642    0.9654    0.9727 ...
+             0.9791    0.7218    0.7837    0.8054    0.9655    0.9561 ...
+             1.0032    1.0677    1.6948    0.7964    0.8164    0.8528 ...
+             0.4405    0.5423    0.3337];
 
 % Adjust RMSE accoding to bias correction factors
 RMSE = CORR_FACT.*RMSE;
@@ -956,7 +970,7 @@ end
 function A = computePartRobustVoronoi(S, M)
 % computePartRobustVoronoi(S, M) returns the adjacency matrix implied by
 % the partially robustified Voronoi tessellation of the system S, computed
-% numerically from M perturbation samplings
+% numerically from M perturbation samples
 
 % Set perturbation scale multiplier
 PERTURBATION_SCALE_MULTIPLIER = 0.04; % = 1/25
@@ -1011,7 +1025,6 @@ else
     A = A0;
     
 end
-
 
 end
 
