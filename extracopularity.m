@@ -5,7 +5,8 @@ function [E, k, m, I, S] = extracopularity(varargin)
 %   coefficients for a LAMMPS dump file that uses unscaled atomic coordin-
 %   ates. A copy of this file with the prefix "extra." featuring a column
 %   for extracopularity coefficients titled "c_extra" is created at the
-%   path of the original.
+%   path of the original. If such a column already exists, then the entries
+%   of that column are returned without computation.
 %
 %   extracopularity(S) returns a cell array of extracopularity coefficients
 %   for an N x 3 coordinate matrix S, where S{t}(n,:) is the row vector
