@@ -1,27 +1,45 @@
-function [E, k, S] = extracopularity(varargin)
+function [E, k, m, I, S] = extracopularity(varargin)
 %EXTRACOPULARITY Extracopularity coefficients for a 3D particle packing.
 %
-%   extracopularity(filename) returns extracopularity coefficients for the
-%   particles described by a LAMMPS dump file with unscaled atomic coord-
-%   inates. A copy of this file with a column for extracopularity coeff-
-%   icients labelled "c_extra" is created at the path of the original.
+%   extracopularity(filename) returns a cell array of extracopularity
+%   coefficients for a LAMMPS dump file that uses unscaled atomic coordin-
+%   ates. A copy of this file with the prefix "extra." featuring a column
+%   for extracopularity coefficients titled "c_extra" is created at the
+%   path of the original. If such a column already exists, then the entries
+%   of that column are returned without computation.
 %
-%   extracopularity(S) returns extracopularity coefficients for the part-
-%   icles described by an N x 3 coordinate matrix (a matrix whose N rows 
-%   are coordinate vectors relative to some ordered basis).
+%   extracopularity(S) returns a cell array of extracopularity coefficients
+%   for an N x 3 coordinate matrix S, where S{t}(n,:) is the row vector
+%   giving the xyz coordinates of particle number n at timestep t.
 %
-%   E = extracopularity(...) returns a cell array of extracopularity coeff-
-%   icients. If the input argument is a LAMMPS dump file with multiple
-%   timesteps, the nth cell corresponds to the nth timestep.
+%   extracopularity(___,numSamples) computes coefficients from a specified
+%   number of robustified Voronoi neighborhood samples. Larger values pro-
+%   duce more accurate results at the expense of performance. The default
+%   number of samples is 8.
 %
-%   [E, k] = extracopularity(...) returns cell arrays for extracopularity
-%   coefficients and coordination numbers.
+%   E = extracopularity(...) returns a cell array E of extracopularity
+%   coefficients, where E{t}(n) is the coefficient of particle number n at
+%   timestep t.
 %
-%   [E, k, S] = extracopularity(...) returns cell arrays for extracopul-
-%   arity coefficients, coordination numbers, and coordinate matrices.
+%   [E, k] = extracopularity(...) also returns a cell array k for coordin-
+%   ation number, where k{t}(n) is the coordination number of particle num-
+%   ber n at timestep t.
+%
+%   [E, k, m] = extracopularity(...) also returns a cell array m for bond
+%   angle count, where m{t}(n) is the bond angle count of particle number
+%   n at timestep t.
+%
+%   [E, k, m, I] = extracopularity(...) also returns a cell array I for
+%   particle type, where I{t}(n) indicates the type of particle number n
+%   (identical for every timestep t).
+%
+%   [E, k, m, I, S] = extracopularity(...) also returns a cell array S of
+%   coordinate matrices, where S{t}(n,:) is the row vector giving the xyz
+%   coordinates of particle number n at timestep t.
 %
 %   EXAMPLE:
-%   [X, Y, Z] = meshgrid(1:20); S = [X(:), Y(:), Z(:)]; % defines system
+%
+%   [X, Y, Z] = meshgrid(1:20); S = [X(:), Y(:), Z(:)]; % defines a lattice
 %   E = extracopularity(S); % computes extracopularity coefficients
 %   scatter3(S(:,1),S(:,2),S(:,3),[],E{1},'filled'); colorbar; % plots
 %
@@ -32,7 +50,7 @@ function [E, k, S] = extracopularity(varargin)
 %       particles", J. Chem. Phys. 156, 091101 (2022)
 %
 %   [2] John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "On the top-
-%       ology of the space of coordination geometries", arXiv:2207.12171 
+%       ology of the space of coordination geometries", arXiv:2207.12171
 %       [math-ph] (2022)
 
 %{
@@ -65,7 +83,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 %}
 
-% ============================= PARSE INPUTS ==============================
+%****************************** PARSE INPUTS ******************************
 
 % Print empty line
 disp(' ');
@@ -76,55 +94,71 @@ if nargin < 1
 end
 
 % Throw error if too many input arguments
-if nargin > 1
+if nargin > 2
     error('Too many input arguments.');
 end
 
-% Determine input type and throw error if invalid
+% Assign numSamples to user defined or default value
+if nargin == 2
+    if isnumeric(varargin{2}) && numel(varargin{2})==1 && ...
+        varargin{2} > 0 && rem(varargin{2},1) == 0
+        numSamples = varargin{2}; % user defined value
+    else
+        error('Second argument must be a positive integer.');
+    end
+else
+    numSamples = 8; % default value
+end
+
+% Determine first input type and throw error if invalid
 if isnumeric(varargin{1})
     inputType = 'numeric';
 else
     try char(varargin{1});
         inputType = 'string';
     catch
-        error('Invalid data type. Argument must be a string or numeric.');
+        error('First argument must be a string or numeric.');
     end
 end
 
-% Proceed based on input type
+% Proceed based on first input type
 switch inputType
     
     case 'string'
         
         % Read data and search for extracopularity coefficients
         filename = char(varargin{1});
-        [S,dumpHeaders,dumpTables,~,E] = readLammpsDump(filename);
+        [S,dumpHeaders,dumpTables,~,E,I] = readLammpsDump(filename);
         
         % Return control if coefficients are found
         if ~isempty(E{1})
             k = [];
+            m = [];
             return
         end
         
     case 'numeric'
         
-        % Assign input to S
-        S = varargin;
+        % Assign first input to S
+        S = varargin(1);
         
         % Throw error if input argument is complex
         if ~isequal(S{1},real(S{1}))
-            error('Numeric argumnts must be real.');
+            error('A numeric first argument must be real.');
         end
         
         % Throw error if input argument does not have 3 columns
         if size(S{1},2) ~= 3
-            error('Numeric arguments must have 3 columns.');
+            error('A numeric first argument must have 3 columns.');
         end
         
         % Throw error if input argument does not have more than 3 columns
         if size(S{1},1) <= size(S{1},2)
-            error('Numeric arguments must have more than 3 rows.');
+            error('A numeric first argument must have more than 3 rows.');
         end
+        
+        % Assign null output I
+        I = [];
         
 end
 
@@ -133,10 +167,7 @@ if min(svd(S{1})) < eps
     error('System must have 3 linearly independent dimensions.');
 end
 
-% ============================ COMPUTE OUTPUTS ============================
-
-% Set number of perturbation samplings
-NUM_SAMPLES = 8;
+%**************************** COMPUTE OUTPUTS *****************************
 
 % Determine number of timesteps in input data
 numTimesteps = numel(S);
@@ -159,7 +190,7 @@ for t = 1:numTimesteps
     
     % Compute the partially robustified Voronoi adjacency matrix
     % (robustification is implicitly completed by computeHoodParms)
-    A = computePartRobustVoronoi(S{t}, NUM_SAMPLES);
+    A = computePartRobustVoronoi(S{t}, numSamples);
     
     % Determine the number of particles
     numParticles = size(S{t},1);
@@ -190,8 +221,9 @@ for t = 1:numTimesteps
     % Account for the case of a single bond
     E{t}(numBondPair == 0) = 0;
     
-    % Assign second output argument
+    % Assign second and third output arguments
     k{t} = numBonds;
+    m{t} = numDiffAngs;
     
 end
 
@@ -200,12 +232,12 @@ elapsedTime = toc; % measures elapsed time
 % Display progress message
 disp(strcat("Analysis completed in ",string(elapsedTime)," seconds."));
 
-% Write to file (if particle position data was taken from a file)
+% Write to file (if particle position data was read from a file)
 if exist('dumpTables','var')
     writeLammpsDump(dumpTables,dumpHeaders,E,filename)
 end
 
-% =========================== TABULATE RESULTS ============================
+%*************************** TABULATE RESULTS *****************************
 
 % Calculate E for commonly encountered geometries
 k_ref = [12 11 12 14 12 12  8 11 10 10  9  8  4  8  7  8  5 NaN  2];
@@ -226,8 +258,8 @@ strucFrac{2}(end-1,:)=100*mean(sum(abs(vertcat(E{:})-E_ref')<=prc,2)==0);
 strucFrac{3}(end-1,:)=100*mean(sum(abs(vertcat(E{end})-E_ref')<=prc,2)==0);
 
 % Set table row names
-rowNames = {'ICO' 'CPA' 'FCC' 'BCC' 'HCP' 'BPP' 'HXD,SA' 'CPP' 'BSP' ...
-    'BSA,SC' 'CSA,CSP,TTP' 'HBP' 'TET,(9,6)' 'BTP' 'CTP,PBP' 'SDS' 'TBP'...
+rowNames = {'ICO' 'CPA' 'FCC' 'BCC' 'HCP' 'BPP' 'HDR/SA' 'CPP' 'BSP' ...
+    'BSA/SC' 'CSA/CSP/TTP' 'HBP' 'TET' 'BTP' 'CTP/PBP' 'SDS' 'TBP' ...
     'OTHER' 'TRIVIAL'};
 
 % Set table variable names
@@ -254,7 +286,7 @@ clear fmt
 end
 
 %==========================================================================
-function [S,dumpHeaders,dumpTables,timeIdx,E] = readLammpsDump(filename)
+function [S,dumpHeaders,dumpTables,timeIdx,E,I] = readLammpsDump(filename)
 
 % Read LAMMPS dump file
 inputDumpId = fopen(filename,'r' );
@@ -279,6 +311,7 @@ dumpHeaders = cell(1,numTimeSteps);
 dumpTables  = cell(1,numTimeSteps);
 S           = cell(1,numTimeSteps);
 E           = cell(1,numTimeSteps);
+I           = cell(1,numTimeSteps);
 
 for t = 1:numTimeSteps % cannot be parfor
     
@@ -305,7 +338,7 @@ for t = 1:numTimeSteps % cannot be parfor
     coordinateColumns = strcmp('x',columnNames) ...
         | strcmp('y',columnNames) ...
         | strcmp('z',columnNames);
- 
+    
     % Read unscaled coordinates into variable S if found
     if sum(coordinateColumns)==3
         S{t} = table2array(dumpTables{t}(:,coordinateColumns));
@@ -321,6 +354,14 @@ for t = 1:numTimeSteps % cannot be parfor
         E{t} = table2array(dumpTables{t}(:,extraColumn));
     else
         E{t} = [];
+    end
+    
+    % Search for particle type column
+    typeColumn = strcmp('type',columnNames);
+    if any(typeColumn)
+        I{t} = table2array(dumpTables{t}(:,typeColumn));
+    else
+        warning('Particle types could not be found.');
     end
     
     % Delete temporary file
@@ -401,7 +442,8 @@ bondLengths = sqrt(sum(bonds.*bonds,2));
 bonds = bonds(idx,:);
 
 % Remove outliers
-lengthScale = min(pdist(bonds));
+bondDists = min(squareform(pdist(bonds))+diag(inf*ones(size(bonds,1),1)));
+lengthScale = mean(bondDists);
 isOutlier = bondLengths>(2*lengthScale);
 bonds(isOutlier,:) = [];
 bondLengths(isOutlier,:) = [];
@@ -432,7 +474,7 @@ end
 % Initialize RMSE vector
 RMSE = zeros(1,33);
 
-% ================================== 14 ===================================
+%********************************** 14 ************************************
 
 % BCC (body-centered cubic) [M]
 BCC = [54.7356; 70.5288; 90; 109.4712; 125.2644; 180];
@@ -447,7 +489,7 @@ else
     hasRightAngle = false;
 end
 
-% ================================== 12 ===================================
+%********************************** 12 ************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(12,k_raw),2);
@@ -500,7 +542,7 @@ else
     RMSE(7) = inf;
 end
 
-% ================================== 11 ===================================
+%********************************** 11 ************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(11,k_raw),2);
@@ -517,7 +559,7 @@ else
     RMSE(8) = inf;
 end
 
-% ================================== 10 ===================================
+%********************************** 10 ************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(10,k_raw),2);
@@ -559,7 +601,7 @@ else
     hasTheseFiveAngles = false;
 end
 
-% =================================== 9 ===================================
+%********************************** 9 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(9,k_raw),2);
@@ -605,18 +647,18 @@ for ii = 1:numel(TTP)
     end
 end
 
-% =================================== 8 ===================================
+%********************************** 8 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(8,k_raw),2);
 pairs(rowsToShed,:) = [];
 angles(rowsToShed,:) = [];
 
-% HXD (regular hexahedral) [M]
-HXD = [70.5288; 109.4712; 180];
-[MAT,idx] = computeMinAbsDiff(angles,HXD);
+% HDR (regular hexahedral) [M]
+HDR = [70.5288; 109.4712; 180];
+[MAT,idx] = computeMinAbsDiff(angles,HDR);
 
-if numelunique(idx) == numel(HXD) ...
+if numelunique(idx) == numel(HDR) ...
         && ~hasRightAngle && ~hasTheseFiveAngles && k_half_shell <= 8
     
     RMSE(20) = computeRMS(MAT);
@@ -687,7 +729,7 @@ for ii = 1:numel(SDS)
     
 end
 
-% =================================== 7 ===================================
+%********************************** 7 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(7,k_raw),2);
@@ -721,7 +763,7 @@ for ii = 1:numel(CTP)
     
 end
 
-% =================================== 6 ===================================
+%********************************** 6 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(6,k_raw),2);
@@ -739,7 +781,7 @@ else
     RMSE(31) = inf;
 end
 
-% =================================== 5 ===================================
+%********************************** 5 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(5,k_raw),2);
@@ -756,7 +798,7 @@ else
     RMSE(32) = inf;
 end
 
-% =================================== 4 ===================================
+%********************************** 4 *************************************
 
 % Shed unneeded rows from angles and pairs
 rowsToShed = any(pairs > min(4,k_raw),2);
@@ -773,8 +815,7 @@ else
     RMSE(33) = inf;
 end
 
-
-% =========================================================================
+%--------------------------------------------------------------------------
 
 % Apply naive neighbor restriction (for BCC)
 isFar = bondLengths > TAU_PLUS_ONE_DOUBLE*nnDist;
@@ -788,12 +829,12 @@ bonds(isFar,:) = [];
 k_single_shell = size(bonds,1);
 
 % Set correction factors
-CORR_FACT = [ 1.3155    1.0000    1.3830    1.4386    1.3729    0.7769 ...
-    1.3804    1.3333    1.1576    1.1618    1.1256    1.1476 ...
-    1.1346    1.0937    1.1362    1.0642    0.9654    0.9727 ...
-    0.9791    0.7218    0.7837    0.8054    0.9655    0.9561 ...
-    1.0032    1.0677    1.6948    0.7964    0.8164    0.8528 ...
-    0.4405    0.5423    0.3337];
+CORR_FACT = [1.3155    1.0000    1.3830    1.4386    1.3729    0.7769 ...
+             1.3804    1.3333    1.1576    1.1618    1.1256    1.1476 ...
+             1.1346    1.0937    1.1362    1.0642    0.9654    0.9727 ...
+             0.9791    0.7218    0.7837    0.8054    0.9655    0.9561 ...
+             1.0032    1.0677    1.6948    0.7964    0.8164    0.8528 ...
+             0.4405    0.5423    0.3337];
 
 % Adjust RMSE accoding to bias correction factors
 RMSE = CORR_FACT.*RMSE;
@@ -881,11 +922,11 @@ else
         pairs_org(any(pairs_org > min(12,size(bonds,1)),2),:) = [];
         angles = abs(computeAngle( bonds(pairs_org(:,1),:), ...
             bonds(pairs_org(:,2),:) ));
-            EDGES = [0   27.3678   57.9675   68.1037   78.3974   85.8934   ...
-                92.6483  102.3839  114.7356  122.6322  130.3540  139.7218  ...
-                162.0000  180.0000];
-            m = numel(unique(discretize(angles,EDGES)));
-            k = k_single_shell;
+        EDGES = [0   27.3678   57.9675   68.1037   78.3974   85.8934   ...
+            92.6483  102.3839  114.7356  122.6322  130.3540  139.7218  ...
+            162.0000  180.0000];
+        m = numel(unique(discretize(angles,EDGES)));
+        k = k_single_shell;
     end
     
 end
@@ -929,7 +970,7 @@ end
 function A = computePartRobustVoronoi(S, M)
 % computePartRobustVoronoi(S, M) returns the adjacency matrix implied by
 % the partially robustified Voronoi tessellation of the system S, computed
-% numerically from M perturbation samplings
+% numerically from M perturbation samples
 
 % Set perturbation scale multiplier
 PERTURBATION_SCALE_MULTIPLIER = 0.04; % = 1/25
@@ -984,7 +1025,6 @@ else
     A = A0;
     
 end
-
 
 end
 
