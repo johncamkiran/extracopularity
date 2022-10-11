@@ -6,7 +6,7 @@ Code for computing extracopularity coefficients in three-dimensional particle pa
 
 ## Description
 
-The [extracopularity coefficient](https://aip.scitation.org/doi/10.1063/5.0079985) is a local orientational order parameter for systems of interacting particles useful in the structural analysis of molecular dynamics simulations. In this repository, we provide implementations of our algorithm for computing extracopularity coefficients  in three-dimensional particle packings. A [MATLAB](https://www.mathworks.com/products/matlab.html) implementation is currently available, and a C++ implementation is under development. Our code accepts [LAMMPS](https://lammps.org/#gsc.tab=0) dump file inputs, which are easily visualized using [OVITO](https://www.ovito.org).
+The [extracopularity coefficient](https://aip.scitation.org/doi/10.1063/5.0079985) is a local orientational order parameter for systems of interacting particles useful in the structural analysis of molecular dynamics simulations. In this repository, we provide implementations of our algorithm for computing extracopularity coefficients  in three-dimensional particle packings. A [MATLAB](https://www.mathworks.com/products/matlab.html) implementation is currently available, and a C++ implementation is under development. Our code accepts [LAMMPS](https://lammps.org/#gsc.tab=0) dump file inputs, which are easily visualized in [OVITO](https://www.ovito.org). Renderings of simulations analyzed by our code can be found on [YouTube](https://www.youtube.com/channel/UCHmFOd5L7Glrw6nyF8BoEqA).
 
 ## Getting started
 
@@ -19,7 +19,7 @@ For further documentation, see the header comment of *extracopularity.m*
 
 ## Versions
 
-The latest version performs "bond angle discretization" as per Ref. [2] if a "commonly encountered geometry" cannot be found as per Ref. [1]. A version that adheres strictly to Ref. [1] is preserved in the legacy branch. 
+The latest version performs "bond angle discretization" as per [[2]](#citation) if a "commonly encountered geometry" cannot be found as per [[1]](#citation). A version that adheres strictly to [[1]](#citation) is preserved in the legacy branch. 
 
 ## Citation
 
