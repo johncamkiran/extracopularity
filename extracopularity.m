@@ -442,8 +442,9 @@ bondLengths = sqrt(sum(bonds.*bonds,2));
 bonds = bonds(idx,:);
 
 % Remove outliers
-bondDists = min(squareform(pdist(bonds))+diag(inf*ones(size(bonds,1),1)));
-lengthScale = mean(bondDists);
+bondDistMat = sqrt(sqdist(bonds',bonds'));
+bondDistMin = min( bondDistMat + diag(inf*ones(size(bonds,1),1)) );
+lengthScale = mean(bondDistMin);
 isOutlier = bondLengths>(2*lengthScale);
 bonds(isOutlier,:) = [];
 bondLengths(isOutlier,:) = [];
@@ -931,6 +932,18 @@ else
     
 end
 
+end
+
+%==========================================================================
+function D = sqdist(X1, X2)
+% Pairwise square Euclidean distance between two sample sets
+% Input:
+%   X1, X2: dxn1 dxn2 sample matrices
+% Output:
+%   D: n1 x n2 square Euclidean distance matrix
+% Written by Mo Chen (sth4nth@gmail.com).
+D = bsxfun(@plus,dot(X2,X2,1),dot(X1,X1,1)')-2*(X1'*X2);
+D(D<0) = 0;
 end
 
 %==========================================================================
