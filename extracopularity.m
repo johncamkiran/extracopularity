@@ -55,21 +55,16 @@ function [E, k, m, I, S] = extracopularity(varargin)
 
 %{
 Copyright (c) 2022 John CAMKIRAN
-
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
-
 1. Redistributions of source code must retain the above copyright notice,
    this list of conditions and the following disclaimer.
-
 2. Redistributions in binary form must reproduce the above copyright
    notice, this list of conditions and the following disclaimer in the
    documentation and/or other materials provided with the distribution.
-
 3. Neither the name of the copyright holder nor the names of its
    contributors may be used to endorse or promote products derived from
    this software without specific prior written permission.
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -180,19 +175,6 @@ m = cell(1,numTimesteps);
 % Precompute pair indices up to 14
 pairs = nchoosek(1:14,2);
 
-% Set bin constants
-BIN_WIDTH_MIN = 5.0;
-BIN_WIDTH_AVG = 2.5;
-
-% Set number of bond angle discretization iterations
-NUM_BAD_ITER = 400;
-
-% Determine number of bins needed
-N_BINS = ceil(180/BIN_WIDTH_MIN);
-
-% Sample exponentially distributed numbers for bin widths
-binWidths = BIN_WIDTH_MIN-BIN_WIDTH_AVG*log(1-rand(N_BINS*NUM_BAD_ITER,1));
-    
 tic % records current time
 
 % Analyze timesteps
@@ -201,17 +183,6 @@ for t = 1:numTimesteps
     % Display progress message
     disp(strcat("Analyzing timestep ",string(t)," of ", ...
         string(numTimesteps),"."));
-    
-    % Generate bin edges for bond angle discretization
-    edges = cell(NUM_BAD_ITER,1);
-    for i = 1:NUM_BAD_ITER
-        idxBeg = N_BINS*(i-1)+1;
-        idxEnd = N_BINS*i;
-        binWidthsPrime = binWidths(idxBeg:idxEnd);
-        edges{i} = cumsum(binWidthsPrime);
-        edges{i}(edges{i}>=180) = [];
-        edges{i} = [0; edges{i}; 180];
-    end
     
     % Compute the partially robustified Voronoi adjacency matrix
     % (robustification is implicitly completed by computeHoodParms)
@@ -231,7 +202,7 @@ for t = 1:numTimesteps
     parfor i = 1:numParticles
         S_t_i = S_t;
         bonds = S_t_i(A(:,i),:) - S_t_i(i,:);
-        [numBonds(i),numDiffAngs(i)]= computeHoodParms(bonds,pairs,edges);
+        [numBonds(i),numDiffAngs(i)]= computeHoodParms(bonds,pairs);
     end
     
     % Calculate the number of bond pairs for each neighborhood
@@ -447,7 +418,7 @@ disp('File successfully written.');
 end
 
 %==========================================================================
-function [k,m] = computeHoodParms(bonds,pairs,edges)
+function [k,m] = computeHoodParms(bonds,pairs)
 % obtainHoodParms(bonds,pairs) returns the number of significant bonds k
 % and different bond angles m for the neighborhood specified by "bonds"
 
@@ -945,40 +916,17 @@ else
         k = 2;
         m = 1;
     else % ordinary case
-        
-        % Compute bond angles
         pairs_org(any(pairs_org > min(12,size(bonds,1)),2),:) = [];
         angles = abs(computeAngle( bonds(pairs_org(:,1),:), ...
             bonds(pairs_org(:,2),:) ));
-        
-        % Determine number of discretizations
-        NUM_ITER_DISC = numel(edges);
-        
-        % Intialize discretization result
-        mm = zeros(NUM_ITER_DISC,1);
-        
-        % Discretize angles
-        for i = 1:NUM_ITER_DISC
-            mm(i) = numelunique(discretize(angles,edges{i}));
-        end
-        
-        % Set output arguments
-        m = firstPercentile(mm,NUM_ITER_DISC);
+        EDGES = [0   27.3678   57.9675   68.1037   78.3974   85.8934   ...
+            92.6483  102.3839  114.7356  122.6322  130.3540  139.7218  ...
+            162.0000  180.0000];
+        m = numel(unique(discretize(angles,EDGES)));
         k = k_single_shell;
-        
     end
     
 end
-
-end
-
-%==========================================================================
-function p = firstPercentile(X,N)
-% firstPercentile(X,N) quickly returns the first percentile for an array X
-% with N elements
-
-Xsorted = sort(X);
-p = Xsorted(ceil(N*0.01));
 
 end
 
