@@ -55,21 +55,16 @@ function [E, k, m, I, S] = extracopularity(varargin)
 
 %{
 Copyright (c) 2022 John CAMKIRAN
-
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
-
 1. Redistributions of source code must retain the above copyright notice,
    this list of conditions and the following disclaimer.
-
 2. Redistributions in binary form must reproduce the above copyright
    notice, this list of conditions and the following disclaimer in the
    documentation and/or other materials provided with the distribution.
-
 3. Neither the name of the copyright holder nor the names of its
    contributors may be used to endorse or promote products derived from
    this software without specific prior written permission.
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -175,6 +170,7 @@ numTimesteps = numel(S);
 % Initialize output cell arrays
 E = cell(1,numTimesteps);
 k = cell(1,numTimesteps);
+m = cell(1,numTimesteps);
 
 % Precompute pair indices up to 14
 pairs = nchoosek(1:14,2);
@@ -442,8 +438,9 @@ bondLengths = sqrt(sum(bonds.*bonds,2));
 bonds = bonds(idx,:);
 
 % Remove outliers
-bondDists = min(squareform(pdist(bonds))+diag(inf*ones(size(bonds,1),1)));
-lengthScale = mean(bondDists);
+bondDistMat = sqrt(sqdist(bonds',bonds'));
+bondDistMin = min( bondDistMat + diag(inf*ones(size(bonds,1),1)) );
+lengthScale = mean(bondDistMin);
 isOutlier = bondLengths>(2*lengthScale);
 bonds(isOutlier,:) = [];
 bondLengths(isOutlier,:) = [];
@@ -931,6 +928,18 @@ else
     
 end
 
+end
+
+%==========================================================================
+function D = sqdist(X1, X2)
+% Pairwise square Euclidean distance between two sample sets
+% Input:
+%   X1, X2: dxn1 dxn2 sample matrices
+% Output:
+%   D: n1 x n2 square Euclidean distance matrix
+% Written by Mo Chen (sth4nth@gmail.com).
+D = bsxfun(@plus,dot(X2,X2,1),dot(X1,X1,1)')-2*(X1'*X2);
+D(D<0) = 0;
 end
 
 %==========================================================================

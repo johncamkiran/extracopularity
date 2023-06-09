@@ -27,7 +27,7 @@ If this software is used in the preparation of work that is to be published, ple
 
 1. John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "A local orientational order parameter for systems of interacting particles", [J. Chem. Phys. 156, 091101 (2022)](https://doi.org/10.1063/5.0079985)
 
-2. John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "On the topology of the space of coordination geometries", [arXiv:2207.12171 [math-ph] (2022)](https://arxiv.org/abs/2207.12171)
+2. John Çamkıran, Fabian Parsch, and Glenn D. Hibbard , "On the topology of the space of coordination geometries", [Eur. Phys. J. B 96, 72 (2023)](https://doi.org/10.1140/epjb/s10051-023-00528-9)
 
 ## Licenses
 
